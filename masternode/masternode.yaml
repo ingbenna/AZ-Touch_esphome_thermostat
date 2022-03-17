@@ -1,0 +1,633 @@
+esphome:
+  name: masternode
+  on_boot:
+    then:
+      # read the RTC time once when the system boots
+      ds1307.read_time:
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "1d7529442a8e5c2a526c694afb48dacf"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  id: internal_wifi
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: !secret ap_ssid
+    password: !secret ap_password
+
+captive_portal:
+
+globals:
+    - id: climate_thermostat_preset_override
+      type: bool
+      restore_value: yes
+
+color:
+  - id: my_text_color
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: my_text_color_dark
+    red: 0%
+    green: 0%
+    blue: 0%
+
+font:
+  - file: "fonts/Montserrat-Medium.ttf"
+    id: my_font_big
+    size: 50
+  - file: "fonts/Montserrat-Bold.ttf"
+    id: my_font_small
+    size: 20
+  - file: "fonts/Montserrat-Bold.ttf"
+    id: my_font_small_small
+    size: 14
+  - file: "fonts/Montserrat-Bold.ttf"
+    id: my_font_medium
+    size: 40
+  - file: "fonts/Montserrat-Bold.ttf"
+    id: my_font_medium_small
+    size: 33
+  - file: "fonts/dripicons-v2.ttf"
+    id: my_font_symbols
+    size: 64
+    glyphs: "~qGFWT]9"
+  - file: "fonts/dripicons-v2.ttf"
+    id: my_font_symbols_small
+    size: 40
+    glyphs: "~qGFWT]9Y"
+
+image:
+  - file: "images/background.jpeg"
+    id: my_background_photo
+    type: RGB24
+
+i2c:
+  sda: 25
+  scl: 26
+  scan: true
+  id: bus_i2c
+
+spi:
+ clk_pin: 18
+ mosi_pin: 23
+ miso_pin: 19
+ id: bus_spi
+
+
+xpt2046:
+  id: touch
+  cs_pin: 14 
+  irq_pin: 27 
+  update_interval: 50ms
+  report_interval: 1s
+  dimension_x: 240
+  dimension_y: 320
+  on_state:
+    - delay: 500ms
+    - light.turn_on: screen_backlight
+
+display:
+  - platform: ili9341
+    model: TFT 2.4
+    cs_pin: 5 
+    dc_pin: 4 
+    led_pin: 15 
+    reset_pin: 22 
+    rotation: 270
+    id: screen
+    pages:
+      - id: homepage
+        lambda: |-
+          it.image(0, 0, my_background_photo);
+          it.rectangle(0, 0, 320, 240, my_text_color);
+          
+          it.line(80, 60, 320, 60, my_text_color); //up to temperature
+          it.line(80, 110, 320, 110, my_text_color); //up to humidity
+          it.line(0, 160, 320, 160, my_text_color); //up to pressure
+          it.line(0, 210, 320, 210, my_text_color); //up to time
+          it.line(0, 80, 80, 80, my_text_color); //up to wifi icon
+
+          it.line(240, 60, 240, 210, my_text_color); //left to target temperature commands
+          it.line(80, 60, 80, 160, my_text_color); //left to temperature and humidity
+          
+          it.line(80, 0, 80, 60, my_text_color); //left to HOME
+          it.line(140, 0, 140, 60, my_text_color); //left to AWAY
+          it.line(200, 0, 200, 60, my_text_color); //left to ON
+          it.line(260, 0, 260, 60, my_text_color); //left to OFF
+
+          it.print(40, 40, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "~"); //gear icon
+          
+          if(id(climate_thermostat_preset_override)) {
+            it.print(40, 120, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "MAN"); //ovverride yes icon
+          } else {
+            it.print(40, 120, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "AUTO"); //ovverride off icon
+          }
+
+          int preset = id(climate_thermostat).preset.value();
+          int mode = id(climate_thermostat).mode;
+
+          if(preset == 1) { //HOME
+            it.print(110, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          } else if(preset == 2) { //AWAY
+            it.print(110, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          } else {
+            it.print(110, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          }
+
+          if(mode == 0) { //OFF
+            it.print(230, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "OFF"); //OFF placeholder
+          } else if(mode == 3) { //HEAT
+            it.print(230, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "OFF"); //OFF placeholder
+          } else {
+            it.print(230, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "OFF"); //OFF placeholder
+          }
+
+          it.printf(160, 85, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f °C", id(temperature).state); //temperature
+          it.printf(160, 135, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f %%", id(humidity).state); //humidity
+          it.printf(120, 185, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f hPa", id(pressure).state); //pressure
+
+          it.print(280, 85, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "W"); //target temperature up
+          it.printf(280, 135, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f", id(climate_thermostat).target_temperature);
+          it.print(280, 185, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "T"); //target temperature down
+
+          it.strftime(160, 225, id(my_font_small), id(my_text_color), TextAlign::CENTER, "%d/%m/%Y %H:%M:%S", id(rtc).now()); //bottom time
+      - id: settings
+        lambda: |-
+          it.image(0, 0, my_background_photo);
+          it.rectangle(0, 0, 320, 240, my_text_color);
+          
+          it.line(80, 60, 320, 60, my_text_color); //up to temperature
+          it.line(80, 110, 320, 110, my_text_color); //up to humidity
+          it.line(0, 160, 320, 160, my_text_color); //up to pressure
+          it.line(0, 210, 320, 210, my_text_color); //up to time
+          it.line(0, 80, 80, 80, my_text_color); //up to wifi icon
+
+          it.line(240, 60, 240, 210, my_text_color); //left to target temperature commands
+          it.line(80, 60, 80, 160, my_text_color); //left to temperature and humidity
+          
+          it.line(80, 0, 80, 60, my_text_color); //left to HOME
+          it.line(140, 0, 140, 60, my_text_color); //left to AWAY
+          it.line(200, 0, 200, 60, my_text_color); //left to ON
+          it.line(260, 0, 260, 60, my_text_color); //left to OFF
+
+          it.print(40, 40, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "q"); //back icon
+          
+          if(id(internal_wifi).is_connected()) {
+            it.print(40, 120, id(my_font_symbols_small), id(my_text_color), TextAlign::CENTER, "]"); //wifi connected icon
+          } else {
+            it.print(40, 120, id(my_font_symbols_small), id(my_text_color), TextAlign::CENTER, "9"); //wifi NOT connected icon
+          }
+
+          int preset = id(climate_thermostat).preset.value();
+          int mode = id(climate_thermostat).mode;
+
+          if(preset == 1) { //HOME
+            it.print(110, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          } else if(preset == 2) { //AWAY
+            it.print(110, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          } else {
+            it.print(110, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "HOME"); //HOME placeholder
+            it.print(170, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "AWAY"); //AWAY placeholder
+          }
+
+          if(mode == 0) { //OFF
+            it.print(230, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "OFF"); //OFF placeholder
+          } else if(mode == 3) { //HEAT
+            it.print(230, 30, id(my_font_small_small), id(my_text_color_dark), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "OFF"); //OFF placeholder
+          } else {
+            it.print(230, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "ON"); //ON placeholder
+            it.print(290, 30, id(my_font_small_small), id(my_text_color), TextAlign::CENTER, "OFF"); //OFF placeholder
+          }
+
+          it.printf(160, 85, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f °C", id(owm_temperature).state); //temperature
+          it.printf(160, 135, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f %%", id(owm_humidity).state); //humidity
+          it.printf(120, 185, id(my_font_medium_small), id(my_text_color), TextAlign::CENTER, "%.1f hPa", id(owm_pressure).state); //pressure
+
+          it.print(280, 85, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "W"); //backlight up
+          it.printf(280, 135, id(my_font_small), id(my_text_color), TextAlign::CENTER, "%.0f %%", id(screen_backlight).current_values.get_brightness()*100);
+          it.print(280, 185, id(my_font_symbols), id(my_text_color), TextAlign::CENTER, "T"); //backlight down
+
+          it.strftime(160, 225, id(my_font_small), id(my_text_color), TextAlign::CENTER, "%d/%m/%Y %H:%M:%S", id(rtc).now()); //bottom time
+
+output:
+  - platform: ledc
+    pin: 15
+    id: screen_backlight_pwm
+    inverted: true
+  - platform: ledc
+    pin: GPIO21
+    id: rtttl_out
+
+rtttl:
+  output: rtttl_out
+
+light:
+  - platform: monochromatic
+    output: screen_backlight_pwm
+    name: "Retroilluminazione display"
+    id: screen_backlight
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - delay: 60s
+      - light.turn_off: screen_backlight
+
+sensor:
+  - platform: dht
+    model: AM2302
+    pin: 33
+    temperature:
+      name: "Temperatura piano terra"
+      id: temperature
+    humidity:
+      name: "Umidità piano terra"
+      id: humidity
+    update_interval: 60s
+  - platform: bmp280
+    pressure:
+      name: "Pressione piano terra"
+      id: pressure
+      oversampling: 16x
+    address: 0x76
+    update_interval: 60s
+  - platform: homeassistant
+    id: owm_temperature
+    entity_id: sensor.openweathermaphome_temperature
+  - platform: homeassistant
+    id: owm_humidity
+    entity_id: sensor.openweathermaphome_humidity
+  - platform: homeassistant
+    id: owm_pressure
+    entity_id: sensor.openweathermaphome_pressure
+
+binary_sensor:
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_menu
+    x_min: 0
+    x_max: 80
+    y_min: 0
+    y_max: 80
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              and:
+                - display.is_displaying_page: homepage
+                - light.is_on: screen_backlight
+            then:
+              - display.page.show: settings
+            else:
+              - display.page.show: homepage
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_override
+    x_min: 80
+    x_max: 160
+    y_min: 0
+    y_max: 80
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              and:
+               - display.is_displaying_page: homepage
+               - light.is_on: screen_backlight
+            then:
+              - lambda: |-
+                  id(climate_thermostat_preset_override) = not(id(climate_thermostat_preset_override));
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_up
+    x_min: 60
+    x_max: 110
+    y_min: 240
+    y_max: 320
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              and:
+                - display.is_displaying_page: settings
+                - light.is_on: screen_backlight
+            then:
+              light.dim_relative:
+                id: screen_backlight
+                relative_brightness: 20%
+            else:
+              - lambda: |-
+                  auto call = id(climate_thermostat).make_call();
+                  call.set_target_temperature(id(climate_thermostat).target_temperature + 0.1);
+                  // etc. see API reference
+                  call.perform();
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_down
+    x_min: 160
+    x_max: 210
+    y_min: 240
+    y_max: 320
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              and:
+                - display.is_displaying_page: settings
+                - light.is_on: screen_backlight
+            then:
+              light.dim_relative:
+                id: screen_backlight
+                relative_brightness: -20%
+            else:
+              - lambda: |-
+                  auto call = id(climate_thermostat).make_call();
+                  call.set_target_temperature(id(climate_thermostat).target_temperature - 0.1);
+                  // etc. see API reference
+                  call.perform();
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_home
+    x_min: 0
+    x_max: 60
+    y_min: 80
+    y_max: 140
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              light.is_on: screen_backlight
+            then:
+              lambda: !lambda |-
+                auto call = id(climate_thermostat).make_call();
+                call.set_preset("HOME");
+                call.perform();
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_away
+    x_min: 0
+    x_max: 60
+    y_min: 140
+    y_max: 200
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              light.is_on: screen_backlight
+            then:
+              lambda: !lambda |-
+                auto call = id(climate_thermostat).make_call();
+                call.set_preset("AWAY");
+                call.perform();
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_on
+    x_min: 0
+    x_max: 60
+    y_min: 200
+    y_max: 260
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              light.is_on: screen_backlight
+            then:
+              lambda: !lambda |-
+                auto call = id(climate_thermostat).make_call();
+                call.set_mode("HEAT");
+                call.perform();
+  - platform: xpt2046
+    xpt2046_id: touch
+    id: key_off
+    x_min: 0
+    x_max: 60
+    y_min: 260
+    y_max: 320
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - if:
+            condition:
+              light.is_on: screen_backlight
+            then:
+              lambda: !lambda |-
+                auto call = id(climate_thermostat).make_call();
+                call.set_mode("OFF");
+                call.perform();
+
+time:
+  - platform: ds1307
+    update_interval: never
+    id: rtc
+    on_time:
+      # WEEKDAYS
+      # heating on
+      - seconds: 0
+        minutes: 30
+        hours: 7
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 30
+        hours: 9
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+      # heating on
+      - seconds: 0
+        minutes: 30
+        hours: 11
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 30
+        hours: 13
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+      # heating on
+      - seconds: 0
+        minutes: 0
+        hours: 17
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 0
+        hours: 22
+        days_of_week: MON-FRI
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+      # WEEKENDS
+      # heating on
+      - seconds: 0
+        minutes: 45
+        hours: 8
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 45
+        hours: 9
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+      # heating on
+      - seconds: 0
+        minutes: 30
+        hours: 11
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 30
+        hours: 13
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+      # heating on
+      - seconds: 0
+        minutes: 0
+        hours: 17
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("HOME");
+              call.perform();
+            }
+      # heating off
+      - seconds: 0
+        minutes: 0
+        hours: 22
+        days_of_week: SAT-SUN
+        then:
+          lambda: !lambda |-
+            if (!id(climate_thermostat_preset_override)) {
+              auto call = id(climate_thermostat).make_call();
+              call.set_preset("AWAY");
+              call.perform();
+            }
+  - platform: homeassistant
+    on_time_sync:
+      then:
+        ds1307.write_time:
+
+switch:
+  - platform: gpio
+    name: "Relè caldaia"
+    pin: 32
+    id: caldaia
+
+climate:
+  - platform: thermostat
+    name: "Termostato Caldaia"
+    sensor: temperature
+    default_target_temperature_low: 27.0 °C
+    set_point_minimum_differential: 0.1 °C
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    min_idle_time: 300s
+    id: climate_thermostat
+    heat_action:
+      - switch.turn_on: caldaia
+    idle_action:
+      - switch.turn_off: caldaia
+    away_config:
+      default_target_temperature_low: 16.0°C
