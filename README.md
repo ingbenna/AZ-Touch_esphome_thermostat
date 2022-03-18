@@ -26,9 +26,13 @@ I know that intervals are configurable only through esphome yaml, I desire to ma
 
 We also have a virtual button in the homepage (under the gear icon) to override eventually settings applied by the scheduler.
 
+The "DS3231" RTC is used to read the current date and time at the boot stage and to update them on sync with homeassistant.
+
+### Display
+The display is a "2.8" ILI9341" with a "XPT2046" resitive touch.
+Attached to the backlight's turn on event we have a 60 seconds delay before turn it off: that's how we reached an auto turn off for the display backlight!
+
 ### Miscellanous
 TODO:
-- RTC read time on boot and write time on ha sync
 - Explanation of pages and virtual buttons
 - Explanation about sensors (hardware and owm)
-- Auto turn off backlight
