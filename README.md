@@ -62,6 +62,13 @@ The "DS3231" RTC is used to read the current date and time at the boot stage and
 The display is a "2.8" ILI9341" with a "XPT2046" resitive touch.
 Attached to the backlight's turn on event we have a 60 seconds delay before turn it off: that's how we reached an auto turn off for the display backlight!
 
-### Miscellanous
-TODO:
-- Explanation about sensors (hardware and owm)
+### Sensors
+We have diffent sensors:
+- Internal temperature from "DHT22 AM2302" sensor
+- Internal humidity from "DHT22 AM2302" sensor
+- Internal pressure from "BMP280" sensor
+- External temperature from OpenWeatherMap through HomeAssistant
+- External humidity from OpenWeatherMap through HomeAssistant
+- External pressure from OpenWeatherMap through HomeAssistant
+
+The idea is to connect other sensors from another esphome to get the last three bullets.
