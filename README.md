@@ -8,8 +8,38 @@ Please tell me any idea to improve this little project.
 ### First page (homepage)
 ![002](https://user-images.githubusercontent.com/17341623/158959919-911d6e55-eff9-47e7-8729-20a49bc7d096.jpg)
 
+From the upper left side we have:
+- Gear icon: to switch to settings page
+- Home: to set climate to "home" preset
+- Away: to set climate to "away" preset
+- On: to get the climate on
+- Off: to get the climate off
+- Auto/Man: to override or not the scheduled set of preset
+- Internal temperature from "DHT22 AM2302" sensor
+- Internal humidity from "DHT22 AM2302" sensor
+- Internal pressure from "BMP280" sensor
+- Up target temperature of 0.1 °C
+- Current target temperature
+- Down target temperature of 0.1 °C
+- Current date and time from "DS3231" real time clock
+
 ### Second page (settings)
 ![001](https://user-images.githubusercontent.com/17341623/158959874-dc340779-1cda-43f8-a3c2-366e77508409.jpg)
+
+From the upper left side we have:
+- Back icon: to switch to homepage
+- Home: to set climate to "home" preset
+- Away: to set climate to "away" preset
+- On: to get the climate on
+- Off: to get the climate off
+- WiFi/"X" icon: to check the status of wifi connection
+- External temperature from OpenWeatherMap through HomeAssistant
+- External humidity from OpenWeatherMap through HomeAssistant
+- External pressure from OpenWeatherMap through HomeAssistant
+- Up brightness of 20%
+- Current brightness %
+- Down brightness of 20%
+- Current date and time from "DS3231" real time clock
 
 ## The hardware
 The main hardware is based on the "AZ-Touch ESP" kit with the "ESP32 DEV KIT C", "2.8" ILI9341" display and "XPT2046" resitive touch.
@@ -34,5 +64,4 @@ Attached to the backlight's turn on event we have a 60 seconds delay before turn
 
 ### Miscellanous
 TODO:
-- Explanation of pages and virtual buttons
 - Explanation about sensors (hardware and owm)
